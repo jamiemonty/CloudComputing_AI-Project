@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Trading System — Backtest Results</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080c10;--surface:#0d1219;--border:#1a2535;
+  --accent:#00ff88;--accent2:#0099ff;--danger:#ff4b4b;--warn:#ffaa00;
+  --text:#e2e8f0;--muted:#64748b;--up:#00ff88;--down:#ff4b4b;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;line-height:1.6;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,255,136,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,136,0.02) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.container{max-width:1400px;margin:0 auto;padding:40px 24px;position:relative;z-index:1;}
+.header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:48px;border-bottom:1px solid var(--border);padding-bottom:24px;}
+.header-left h1{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;letter-spacing:-1px;color:var(--accent);text-shadow:0 0 40px rgba(0,255,136,0.3);}
+.header-left p{color:var(--muted);font-size:12px;margin-top:4px;}
+.badge{background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);color:var(--accent);padding:6px 14px;border-radius:4px;font-size:11px;letter-spacing:1px;text-transform:uppercase;}
+.badge.warn{background:rgba(255,170,0,0.1);border-color:rgba(255,170,0,0.3);color:var(--warn);}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:2px;}
+.kpi-strip+.kpi-strip{margin-bottom:32px;}
+.kpi{background:var(--surface);border:1px solid var(--border);padding:20px 24px;position:relative;overflow:hidden;transition:border-color 0.2s;}
+.kpi:hover{border-color:var(--accent);}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent-bar,var(--accent));}
+.kpi.danger::before{--accent-bar:var(--danger);}
+.kpi.warn::before{--accent-bar:var(--warn);}
+.kpi.blue::before{--accent-bar:var(--accent2);}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:8px;}
+.kpi-value{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;}
+.kpi-value.up{color:var(--up);} .kpi-value.down{color:var(--down);} .kpi-value.neutral{color:var(--text);}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.section-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin:40px 0 16px;display:flex;align-items:center;gap:12px;}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+.charts-2{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:2px;}
+.charts-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;margin-bottom:2px;}
+.chart-box{background:var(--surface);border:1px solid var(--border);padding:24px;}
+.chart-box.full{grid-column:1/-1;}
+.chart-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.chart-sub{font-size:11px;color:var(--muted);margin-bottom:20px;}
+.chart-wrap{position:relative;height:220px;}
+.chart-wrap.tall{height:300px;}
+.chart-wrap.short{height:160px;}
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:32px;}
+.metrics-table{background:var(--surface);border:1px solid var(--border);overflow:hidden;}
+.metrics-table h3{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.dot.green{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+.dot.blue{background:var(--accent2);box-shadow:0 0 6px var(--accent2);}
+.dot.yellow{background:var(--warn);box-shadow:0 0 6px var(--warn);}
+.metrics-table table{width:100%;border-collapse:collapse;}
+.metrics-table tr{border-bottom:1px solid rgba(26,37,53,0.5);}
+.metrics-table tr:last-child{border-bottom:none;}
+.metrics-table tr:hover{background:rgba(255,255,255,0.02);}
+.metrics-table td{padding:10px 20px;}
+.metrics-table td:first-child{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;}
+.metrics-table td:last-child{text-align:right;font-weight:500;}
+.val-up{color:var(--up);} .val-down{color:var(--down);} .val-warn{color:var(--warn);}
+.wf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2px;margin-bottom:32px;}
+.wf-fold{background:var(--surface);border:1px solid var(--border);padding:20px 24px;position:relative;}
+.wf-fold::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent2);}
+.wf-fold-label{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:6px;}
+.wf-fold-f1{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:var(--accent2);}
+.wf-fold-meta{font-size:11px;color:var(--muted);margin-top:8px;display:flex;gap:16px;}
+.wf-summary{background:var(--surface);border:1px solid rgba(0,153,255,0.3);padding:16px 24px;margin-bottom:32px;display:flex;gap:40px;align-items:center;}
+.wf-summary-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--accent2);}
+.wf-summary-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+.sa-row{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:2px;}
+.sa-card{background:var(--surface);border:1px solid var(--border);padding:20px;text-align:center;}
+.sa-card-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px;}
+.sa-card-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;}
+.sa-card-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+.pill{display:inline-block;padding:2px 8px;border-radius:2px;font-size:10px;font-weight:500;}
+.pill.buy{background:rgba(0,255,136,0.15);color:var(--accent);border:1px solid rgba(0,255,136,0.3);}
+.pill.sell{background:rgba(255,75,75,0.15);color:var(--danger);border:1px solid rgba(255,75,75,0.3);}
+.pill.hold{background:rgba(255,170,0,0.15);color:var(--warn);border:1px solid rgba(255,170,0,0.3);}
+.footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);color:var(--muted);font-size:11px;display:flex;justify-content:space-between;}
+@keyframes scanline{0%{transform:translateY(-100%);}100%{transform:translateY(100vh);}}
+.scanline{position:fixed;top:0;left:0;right:0;height:2px;background:linear-gradient(transparent,rgba(0,255,136,0.06),transparent);animation:scanline 8s linear infinite;pointer-events:none;z-index:999;}
+@media(max-width:900px){.kpi-strip,.charts-2,.charts-3,.metrics-grid,.sa-row{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="container">
+ 
+<div class="header">
+  <div class="header-left">
+    <h1>BACKTEST RESULTS</h1>
+    <p>LightGBM Multiclass · Triple-Barrier mult=2.75 fw=18 · Meta-Filtered · 2025 Test Period</p>
+  </div>
+  <span class="badge warn">ZERO FEES — GROSS ONLY</span>
+</div>
+ 
+<!-- ── PRIMARY KPIs ── -->
+<div class="section-label">Primary Model — All Signals</div>
+<div class="kpi-strip">
+  <div class="kpi blue">
+    <div class="kpi-label">Total Return</div>
+    <div class="kpi-value up">92.84%</div>
+    <div class="kpi-sub">76,100 trades</div>
+  </div>
+  <div class="kpi warn">
+    <div class="kpi-label">Win Rate</div>
+    <div class="kpi-value warn">48.96%</div>
+    <div class="kpi-sub">breakeven = 50.00%</div>
+  </div>
+  <div class="kpi blue">
+    <div class="kpi-label">Profit Factor</div>
+    <div class="kpi-value up">1.0085</div>
+    <div class="kpi-sub">target > 1.00</div>
+  </div>
+  <div class="kpi blue">
+    <div class="kpi-label">Avg Gross PnL / Trade</div>
+    <div class="kpi-value up">0.0863 bps</div>
+    <div class="kpi-sub">before any costs</div>
+  </div>
+</div>
+<div class="kpi-strip">
+  <div class="kpi blue">
+    <div class="kpi-label">Sharpe Ratio</div>
+    <div class="kpi-value up">1.0282</div>
+    <div class="kpi-sub">annualised</div>
+  </div>
+  <div class="kpi danger">
+    <div class="kpi-label">Max Drawdown</div>
+    <div class="kpi-value down">-87.86%</div>
+    <div class="kpi-sub">peak-to-trough</div>
+  </div>
+  <div class="kpi blue">
+    <div class="kpi-label">Avg Win</div>
+    <div class="kpi-value up">20.9443 bps</div>
+    <div class="kpi-sub">per winning trade</div>
+  </div>
+  <div class="kpi danger">
+    <div class="kpi-label">Avg Loss</div>
+    <div class="kpi-value down">-20.2628 bps</div>
+    <div class="kpi-sub">per losing trade</div>
+  </div>
+</div>
+ 
+<!-- ── META KPIs ── -->
+<div class="section-label">Meta Model — High-Confidence Filtered</div>
+<div class="kpi-strip">
+  <div class="kpi blue">
+    <div class="kpi-label">Total Return</div>
+    <div class="kpi-value up">164.28%</div>
+    <div class="kpi-sub">11,789 trades · threshold=0.65</div>
+  </div>
+  <div class="kpi warn">
+    <div class="kpi-label">Win Rate</div>
+    <div class="kpi-value warn">49.88%</div>
+    <div class="kpi-sub">vs primary 48.96%</div>
+  </div>
+  <div class="kpi blue">
+    <div class="kpi-label">Profit Factor</div>
+    <div class="kpi-value up">1.1375</div>
+    <div class="kpi-sub">target > 1.00</div>
+  </div>
+  <div class="kpi blue">
+    <div class="kpi-label">Avg Gross PnL / Trade</div>
+    <div class="kpi-value up">0.8244 bps</div>
+    <div class="kpi-sub">before any costs</div>
+  </div>
+</div>
+<div class="kpi-strip">
+  <div class="kpi blue">
+    <div class="kpi-label">Sharpe Ratio</div>
+    <div class="kpi-value up">13.9832</div>
+    <div class="kpi-sub">annualised</div>
+  </div>
+  <div class="kpi danger">
+    <div class="kpi-label">Max Drawdown</div>
+    <div class="kpi-value down">-17.83%</div>
+    <div class="kpi-sub">peak-to-trough</div>
+  </div>
+  <div class="kpi blue">
+    <div class="kpi-label">Avg Position Size</div>
+    <div class="kpi-value neutral">0.4101</div>
+    <div class="kpi-sub">proportional sizing</div>
+  </div>
+  <div class="kpi blue">
+    <div class="kpi-label">Expectancy</div>
+    <div class="kpi-value up">0.6874 bps</div>
+    <div class="kpi-sub">avg return per trade</div>
+  </div>
+</div>
+ 
+<!-- ── EQUITY CURVES ── -->
+<div class="section-label">Equity Curves</div>
+<div class="charts-2">
+  <div class="chart-box">
+    <div class="chart-title">Primary Model — Equity Curve</div>
+    <div class="chart-sub">Cumulative return, uniform position sizing</div>
+    <div class="chart-wrap tall"><canvas id="equityPrimary"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Meta Model — Equity Curve</div>
+    <div class="chart-sub">Cumulative return, proportional position sizing</div>
+    <div class="chart-wrap tall"><canvas id="equityMeta"></canvas></div>
+  </div>
+</div>
+ 
+<!-- ── DRAWDOWN ── -->
+<div class="section-label">Drawdown Analysis</div>
+<div class="charts-2">
+  <div class="chart-box">
+    <div class="chart-title">Primary — Drawdown</div>
+    <div class="chart-sub">Rolling peak-to-trough decline</div>
+    <div class="chart-wrap"><canvas id="ddPrimary"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Meta — Drawdown</div>
+    <div class="chart-sub">Rolling peak-to-trough decline</div>
+    <div class="chart-wrap"><canvas id="ddMeta"></canvas></div>
+  </div>
+</div>
+ 
+<!-- ── RETURN ANALYSIS ── -->
+<div class="section-label">Return Analysis</div>
+<div class="charts-3">
+  <div class="chart-box">
+    <div class="chart-title">Primary — Return Distribution</div>
+    <div class="chart-sub">Per-trade log-returns (basis points)</div>
+    <div class="chart-wrap"><canvas id="distPrimary"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Meta — Return Distribution</div>
+    <div class="chart-sub">Per-trade log-returns (basis points)</div>
+    <div class="chart-wrap"><canvas id="distMeta"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Meta — Monthly Returns</div>
+    <div class="chart-sub">Aggregated monthly P&L (%)</div>
+    <div class="chart-wrap"><canvas id="monthly"></canvas></div>
+  </div>
+</div>
+ 
+<!-- ── LABEL & SIGNAL ANALYSIS ── -->
+<div class="section-label">Label & Signal Analysis</div>
+<div class="sa-row">
+  <div class="sa-card">
+    <div class="sa-card-label">True Label Distribution</div>
+    <div style="display:flex;justify-content:center;gap:24px;margin:12px 0;">
+      <div><div class="sa-card-val" style="color:var(--danger)">41,848</div><div class="sa-card-sub"><span class="pill sell">SELL</span></div></div>
+      <div><div class="sa-card-val" style="color:var(--warn)">29,828</div><div class="sa-card-sub"><span class="pill hold">HOLD</span></div></div>
+      <div><div class="sa-card-val" style="color:var(--accent)">41,249</div><div class="sa-card-sub"><span class="pill buy">BUY</span></div></div>
+    </div>
+    <div class="sa-card-sub">Actual labels in 2025 test set</div>
+  </div>
+  <div class="sa-card">
+    <div class="sa-card-label">Primary Model Predictions</div>
+    <div style="display:flex;justify-content:center;gap:24px;margin:12px 0;">
+      <div><div class="sa-card-val" style="color:var(--danger)">38,614</div><div class="sa-card-sub"><span class="pill sell">SELL</span></div></div>
+      <div><div class="sa-card-val" style="color:var(--warn)">36,821</div><div class="sa-card-sub"><span class="pill hold">HOLD</span></div></div>
+      <div><div class="sa-card-val" style="color:var(--accent)">37,490</div><div class="sa-card-sub"><span class="pill buy">BUY</span></div></div>
+    </div>
+    <div class="sa-card-sub">What the primary model predicted</div>
+  </div>
+  <div class="sa-card">
+    <div class="sa-card-label">Meta Model Signals</div>
+    <div style="display:flex;justify-content:center;gap:24px;margin:12px 0;">
+      <div><div class="sa-card-val" style="color:var(--danger)">5,549</div><div class="sa-card-sub"><span class="pill sell">SELL</span></div></div>
+      <div><div class="sa-card-val" style="color:var(--warn)">101,135</div><div class="sa-card-sub"><span class="pill hold">FILTERED</span></div></div>
+      <div><div class="sa-card-val" style="color:var(--accent)">6,241</div><div class="sa-card-sub"><span class="pill buy">BUY</span></div></div>
+    </div>
+    <div class="sa-card-sub">After meta confidence filter</div>
+  </div>
+</div>
+<div class="charts-2" style="margin-top:2px;">
+  <div class="chart-box">
+    <div class="chart-title">Prediction vs True Label Distribution</div>
+    <div class="chart-sub">How model predictions compare to actual label counts</div>
+    <div class="chart-wrap"><canvas id="labelDist"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Per-Class Recall</div>
+    <div class="chart-sub">How often the model correctly identifies each class (%)</div>
+    <div class="chart-wrap"><canvas id="classAcc"></canvas></div>
+  </div>
+</div>
+ 
+<!-- ── WALK-FORWARD CV ── -->
+<div class="section-label">Walk-Forward Cross-Validation</div>
+<div class="wf-summary">
+  <div><div class="wf-summary-label">Average Macro F1</div><div class="wf-summary-val">0.4049</div></div>
+  <div><div class="wf-summary-label">Std Dev (Stability)</div><div class="wf-summary-val">±0.0058</div></div>
+  <div><div class="wf-summary-label">Folds Completed</div><div class="wf-summary-val">2</div></div>
+  <div style="margin-left:auto;font-size:11px;color:var(--muted);max-width:300px;">
+    Lower std dev = more consistent across market regimes.<br>
+    All folds use only training data — val/test never touched.
+  </div>
+</div>
+<div class="wf-grid">
+
+  <div class="wf-fold">
+    <div class="wf-fold-label">Fold 1 · 2023-01 to 2023-06</div>
+    <div class="wf-fold-f1">0.4107</div>
+    <div class="wf-fold-meta">
+      <span>Macro F1</span>
+      <span>Train rows: 241,931</span>
+      <span>Best iter: 175</span>
+    </div>
+  </div>
+  <div class="wf-fold">
+    <div class="wf-fold-label">Fold 2 · 2023-07 to 2023-12</div>
+    <div class="wf-fold-f1">0.3991</div>
+    <div class="wf-fold-meta">
+      <span>Macro F1</span>
+      <span>Train rows: 304,277</span>
+      <span>Best iter: 110</span>
+    </div>
+  </div>
+</div>
+<div class="chart-box" style="margin-bottom:2px;">
+  <div class="chart-title">Walk-Forward Macro F1 Per Fold</div>
+  <div class="chart-sub">Expanding window — each fold sees more training data. Flat line = stable generalisation.</div>
+  <div class="chart-wrap short"><canvas id="wfChart"></canvas></div>
+</div>
+ 
+<!-- ── MODEL COMPARISON ── -->
+<div class="section-label">Model Comparison</div>
+<div class="charts-3">
+  <div class="chart-box">
+    <div class="chart-title">Win Rate</div>
+    <div class="chart-sub">Primary vs Meta (%)</div>
+    <div class="chart-wrap"><canvas id="cmpWin"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Profit Factor</div>
+    <div class="chart-sub">Primary vs Meta</div>
+    <div class="chart-wrap"><canvas id="cmpPF"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Sharpe Ratio</div>
+    <div class="chart-sub">Primary vs Meta (annualised)</div>
+    <div class="chart-wrap"><canvas id="cmpSharpe"></canvas></div>
+  </div>
+</div>
+ 
+<!-- ── FULL METRICS TABLES ── -->
+<div class="section-label">Full Metrics</div>
+<div class="metrics-grid">
+  <div class="metrics-table">
+    <h3><span class="dot green"></span> Primary Model</h3>
+    <table>
+      <tr><td>Number of Trades</td><td>76,100</td></tr>
+      <tr><td>Win Rate</td><td class="val-down">48.96%</td></tr>
+      <tr><td>Loss Rate</td><td class="val-down">51.04%</td></tr>
+      <tr><td>Avg Gross PnL / Trade</td><td class="val-up">0.0863 bps</td></tr>
+      <tr><td>Total Return</td><td class="val-up">92.84%</td></tr>
+      <tr><td>Profit Factor</td><td class="val-up">1.0085</td></tr>
+      <tr><td>Sharpe Ratio</td><td class="val-up">1.0282</td></tr>
+      <tr><td>Calmar Ratio</td><td>1.0567</td></tr>
+      <tr><td>Max Drawdown</td><td class="val-down">-87.86%</td></tr>
+      <tr><td>Avg Win (bps)</td><td class="val-up">20.9443 bps</td></tr>
+      <tr><td>Avg Loss (bps)</td><td class="val-down">-20.2628 bps</td></tr>
+      <tr><td>Expectancy (bps)</td><td class="val-down">-0.0876 bps</td></tr>
+      <tr><td>Gross Profit (bps)</td><td class="val-up">780362.6600 bps</td></tr>
+      <tr><td>Gross Loss (bps)</td><td class="val-down">773795.5735 bps</td></tr>
+    </table>
+  </div>
+  <div class="metrics-table">
+    <h3><span class="dot blue"></span> Meta Model (Filtered)</h3>
+    <table>
+      <tr><td>Number of Trades</td><td>11,789</td></tr>
+      <tr><td>Win Rate</td><td class="val-down">49.88%</td></tr>
+      <tr><td>Loss Rate</td><td class="val-down">50.12%</td></tr>
+      <tr><td>Avg Gross PnL / Trade</td><td class="val-up">0.8244 bps</td></tr>
+      <tr><td>Total Return</td><td class="val-up">164.28%</td></tr>
+      <tr><td>Profit Factor</td><td class="val-up">1.1375</td></tr>
+      <tr><td>Sharpe Ratio</td><td class="val-up">13.9832</td></tr>
+      <tr><td>Calmar Ratio</td><td>9.2127</td></tr>
+      <tr><td>Max Drawdown</td><td class="val-down">-17.83%</td></tr>
+      <tr><td>Avg Win (bps)</td><td class="val-up">13.6739 bps</td></tr>
+      <tr><td>Avg Loss (bps)</td><td class="val-down">-12.2355 bps</td></tr>
+      <tr><td>Expectancy (bps)</td><td class="val-up">0.6874 bps</td></tr>
+      <tr><td>Gross Profit (bps)</td><td class="val-up">80402.5114 bps</td></tr>
+      <tr><td>Gross Loss (bps)</td><td class="val-down">70684.2233 bps</td></tr>
+      <tr><td>Avg Position Size</td><td>0.4101</td></tr>
+    </table>
+  </div>
+</div>
+ 
+<div class="footer">
+  <span>LightGBM Trading Classifier · Test Period 2025 · Barrier mult=2.75 · FW=18 bars</span>
+  <span>Transaction Costs: NONE (gross performance)</span>
+</div>
+</div>
+ 
+<script>
+const C=Chart;
+C.defaults.color='#64748b';
+C.defaults.borderColor='#1a2535';
+C.defaults.font.family="'DM Mono',monospace";
+C.defaults.font.size=11;
+ 
+const pEq=[0.9976655865649281, 1.0536702387722452, 1.1023757323129384, 1.1252322290753811, 1.1737151980505591, 1.223845740006976, 2.0444876840803285, 1.9922886568157194, 1.8505690304003335, 1.9932536818494628, 1.9583816426764151, 2.1043375551595727, 2.1004739491974505, 1.9663555924650071, 1.8607931921404786, 1.9250411693214646, 2.063914355549577, 2.0777310900280037, 1.934416564088363, 1.9526939890422639, 2.0979000958832295, 1.9507567737827052, 2.261537784714061, 2.4411142917789745, 2.331781407752363, 2.2602651596100505, 2.538712572144917, 2.4631552954098894, 2.382738121684939, 2.2052745694281986, 2.1313969037861797, 2.382577693612693, 2.2196803967974343, 2.231893404309318, 2.256997886423702, 2.163088222083881, 2.1176517525706178, 2.187966981487661, 2.2049674491934574, 2.2871874210564385, 2.264691115743289, 1.9342716133790465, 2.169484013039117, 2.128847692341019, 2.3383912271517073, 2.1853198502108153, 2.1665586192626005, 2.1061160189353956, 2.405639588988141, 2.3237270682840445, 2.3946519378339484, 2.268909733527742, 2.32886368850378, 2.049403793406996, 2.5202239252179797, 2.3860316700664996, 2.3618959143746325, 2.41797328505251, 2.9677153499200375, 3.8881448732418544, 5.03395998389409, 4.426747188340464, 5.104459213404062, 5.43935988079471, 5.6274645434051624, 5.718589534669314, 5.350518324336266, 5.253621828446141, 5.989208490991504, 6.025387016700329, 5.431146719517931, 5.225465207700889, 6.385252668300766, 6.735874051129575, 7.231969851622626, 7.336451036418341, 6.4222833205024745, 6.305527839900183, 7.0194376485783, 7.341264271903454, 7.269582059310461, 7.912495040967501, 8.636300665674183, 8.331530947316004, 9.239198092802779, 8.947244370229297, 8.49400775969652, 9.379353394014398, 9.47490250231058, 8.129959297576098, 8.597012130560202, 9.030205748110586, 9.326545837142865, 10.031345728966235, 8.502682297664506, 8.111657714926812, 8.002336803062057, 7.7108256776810356, 7.86741351136613, 8.099814797108184, 8.05502359507997, 8.588569299171612, 9.317541837427626, 9.687051002838572, 9.7393721189079, 9.741674837189745, 9.468628167463121, 9.553248268569629, 7.639759908486874, 8.010302326384249, 8.020020689042065, 7.926707279124375, 7.194621331577211, 8.118712469046452, 7.466843436091252, 7.3293574153410255, 7.676089240114962, 7.960213200405199, 7.670453482294381, 7.799318034353915, 7.918985278938323, 7.723310884302279, 7.68452376142194, 6.487725612215587, 5.96520573187401, 4.816269595067421, 4.569483685924223, 4.3096256869342735, 4.265187391766711, 3.953457472360091, 4.2247399697568815, 4.086204043440514, 4.162837277318686, 3.7889167577660485, 3.8008523025887335, 3.7710906050417647, 3.860789102488532, 4.176813305445297, 4.23839874869514, 4.21481581437956, 4.12081596890133, 4.202022245244299, 4.0788718879994, 3.575186977552372, 3.777140584642902, 3.7239843604425453, 3.8480398045019064, 3.750280173961541, 3.876883225293844, 3.776489756049396, 3.7144823113290806, 4.027737672433209, 4.455199201529471, 4.447066667378459, 5.088742352258066, 5.48524904808273, 5.332850292758284, 5.123163327087845, 4.834344142411698, 4.637535183201256, 4.515191380612355, 4.628069277550036, 4.824224803663182, 5.335824541843414, 5.128301628489867, 5.121080702070471, 4.97453757921796, 4.753708964338328, 4.945375772728456, 5.047469479873416, 5.19320220698905, 4.9008900273229985, 4.040507060401986, 3.601037345364401, 4.060738220213442, 4.156931075416212, 4.458725302782256, 4.303927802589694, 4.012694203551947, 3.915489118173948, 3.722824230255227, 3.7468032150950137, 4.100664692911093, 4.152954614481858, 4.155180930845038, 4.402095217452253, 4.801847146864504, 4.93023451962603, 5.510699162786227, 5.3339101291381255, 4.756412062593698, 4.959759352847976, 4.815731851516257, 5.597812184643063, 6.085836887855306, 6.6309191443976, 6.963476381211039, 6.752099711805803, 6.082075312466197, 6.867180459369596, 7.021009528401327, 7.128720181682292, 7.359404316977418, 6.79159948995232, 7.026183333225961, 6.1490103390435875, 5.755466132493364, 5.951956726392123, 7.002484634791018, 8.680534596487794, 8.725162494044783, 9.842465110276255, 8.993147045641216, 8.533325842239027, 8.690674835650736, 9.023783065441615, 9.587732892740238, 7.356139448130195, 9.362298890317293, 9.287643854551728, 7.227512329795706, 8.46040613172575, 8.026318062695458, 8.817473821074554, 9.171024590457312, 8.992138948777608, 9.57645673868072, 9.188867467200351, 9.969389666124874, 10.097183606944672, 8.982743461955268, 9.572723940366464, 9.53109136298426, 8.03720325695484, 8.972497978498971, 8.530219250308267, 9.896950193844933, 12.45419310944723, 12.804858335389664, 12.768488313531282, 12.567752430325465, 12.914632847263372, 12.710306913358712, 13.306931330845003, 13.6089798105096, 13.844331127150959, 13.434278778217033, 12.561065540869132, 11.680741410178667, 11.392674763800983, 11.858185226281593, 12.071583011716184, 12.294079814619938, 12.180214429271796, 12.737079346718122, 13.001864873433112, 12.647734308314332, 11.451149397861503, 12.019124627097385, 11.88413271878694, 12.100955459038776, 14.181229020788926, 14.274847903454862, 13.871260199196836, 14.053456801124543, 14.171360591957594, 14.404713760769758, 13.405279463788267, 12.915253816249072, 12.579143754561002, 12.784379466651123, 13.230600275544342, 13.123414648903102, 13.080240978495265, 13.531000358505436, 12.966426963319325, 12.64678231766732, 13.344209890288754, 13.27688174510858, 13.381193783379103, 12.755895893206505, 13.683075535040231, 12.87635486719534, 13.790900695469526, 12.792346926047784, 11.283018997517011, 11.547297904098587, 11.022261324405433, 12.288296732019543, 12.752461200234588, 11.217984653195447, 12.17100603345113, 12.749067175311053, 12.70070243573381, 12.251150167973934, 12.046384357434981, 12.763264790233414, 12.365231274605584, 12.85242442411922, 12.803734218159455, 13.449347642356479, 13.419722148073433, 13.693947216726446, 12.265065966815925, 11.98058926420305, 10.965327552684272, 10.038301555690515, 9.507780842647419, 10.329174348571742, 10.002417412948555, 8.614744091530362, 7.7286307845758655, 9.39290301029856, 12.745587198541141, 11.771875398112185, 10.795593424169112, 9.980146886830974, 9.593296267431926, 10.297047808319014, 8.991463501955566, 8.88227618415898, 8.194130452738019, 7.85790132119199, 7.281586778187327, 6.490084438634602, 6.487777669952619, 6.387063734246123, 6.289140321392113, 6.616425943562676, 5.495587299168788, 5.693050803996723, 6.1233586161864055, 6.509212466201299, 6.7219968612164, 6.905933335641536, 6.625056655780395, 6.44166415183486, 6.4034565039230396, 6.324837595335173, 6.456516253514507, 6.088883413530148, 5.969140698216471, 5.940727952972634, 5.975599517830919, 5.9722173650582615, 5.828753648504349, 5.89853497372895, 5.825421129818595, 5.749516311672956, 5.717890388236724, 5.812177717913538, 5.074004031021746, 5.087417548905332, 4.950612667587784, 4.970700859354553, 5.106344241444293, 5.133503253473388, 5.0283872573939385, 4.912108566421292, 5.20357951786935, 5.100428963285689, 4.711583239743689, 4.681012531322275, 4.8374906100865855, 4.843530658718827, 4.655529349547293, 4.529514812006324, 4.948026326511265, 5.277025923445915, 4.899707804038853, 5.516981013548884, 5.970927753779218, 5.974926503331386, 5.861161101590224, 5.516521247256605, 5.483049344649045, 5.291837606657418, 5.230861202187306, 4.9125699958692595, 4.935197195706976, 5.155139786581429, 5.1297296275117645, 5.090416327182554, 4.849141727198882, 4.955763607400022, 4.889975192591607, 4.877109054360903, 4.836545354528993, 4.5886065975213555, 4.560221591301065, 4.517784171737268, 4.199318617343175, 3.71119585793894, 3.827758740782543, 3.7891910707487644, 3.696484932159481, 3.4012160159895446, 3.2974228892773088, 3.3906903124192103, 3.458580576952643, 3.03089369885401, 3.1056931662811453, 3.1907558989223843, 3.237244588505855, 3.248743284022836, 3.031494011283087, 3.0269581483585073, 2.9701500104188945, 2.874451739259648, 2.734121085171549, 2.7139779389432266, 2.759977864790603, 2.760199562732922, 2.702486165103227, 2.784546967195271, 2.66845708377668, 2.606009357670293, 2.6165043299618014, 2.540947007874359, 2.5028232996932016, 2.50170876778672, 2.481214497012358, 2.536048285710566, 2.3498833559238808, 2.3351126306188648, 2.3597223025453653, 2.242041037748245, 2.270296853951672, 2.272857143393665, 2.2181616224337675, 2.2351773553683336, 2.29384788719941, 2.335328803964743, 2.3073690252230072, 2.2530834487819416, 2.2578792800365153, 2.2948926390778843, 2.3421809919951446, 2.2666636660292694, 2.324350193419049, 2.2414118240903216, 2.3056689515499804, 2.331067986109546, 2.3810859073484343, 2.4207371499365986, 2.409917842628384, 2.614477336522302, 2.4660120752157995, 2.3762420745961794, 2.3220598697883745, 2.32636118269003, 2.6407270654295827, 2.6771984204470716, 2.6665084723918633, 2.678213564554619, 2.694521626972987, 2.7281992468299987, 2.808119603862448, 2.9153282337947912, 3.0184805573114373, 2.7923474631412275, 2.6205998265322066, 2.655737217546264, 2.6052558970856654, 2.6813272028326334, 2.5816063897153576, 2.5793820656591917, 2.332477208668029, 2.305249202680252, 2.2291205933837954, 2.1392466259260607, 2.094960122487222, 2.108073154073258, 2.017150451618223, 1.9212013680391702, 1.9083885582560483, 1.9484796844112242, 1.900084803810855, 2.0530785021092983, 2.005872835770612, 1.9480771918018738, 1.9650645248670466, 2.1312602894834054, 2.121942966350375, 2.114585172420844, 2.009669592960434, 2.0496516893870322, 2.039950418427645, 2.025432253558665, 1.9812169925682845, 2.003604165233396, 2.038051034349465, 1.8725688793174915, 1.8687427640299905, 1.93253230247258, 1.9534925587992604, 2.035047621807564, 1.9709144780071395, 1.9594863058795644, 1.9284347153895733];
+const mEq=[1.0012907259998396, 1.0079714676992082, 1.0157709457088584, 0.9854799338797805, 1.0107774209297493, 1.0341922234331329, 1.101640983836437, 1.1261286292334154, 1.233941189530407, 1.2859468852223257, 1.2604955696706701, 1.2669060755478607, 1.2496485745337955, 1.244424813065378, 1.2536579168877318, 1.2347876257284192, 1.2156461865750299, 1.205494759282588, 1.2143487089562692, 1.227145417092411, 1.2284011359316753, 1.2400583553713735, 1.2385673015559993, 1.234155699628659, 1.2363411827108857, 1.2243754003996827, 1.2502712113667556, 1.2486037877008203, 1.230252886700758, 1.2076591786121489, 1.2427083220750599, 1.2425782152981584, 1.231563790813212, 1.254015945216611, 1.257157140561228, 1.267361967198075, 1.2678603260328545, 1.258020445304704, 1.27280415103997, 1.267749923136535, 1.2574590730126787, 1.2673530710855225, 1.2807657021388679, 1.2653274759675173, 1.2496620860405656, 1.3355130761997025, 1.349470488394374, 1.3684792195513056, 1.3477277504235012, 1.3381152255772635, 1.3022831259958212, 1.3009789918308512, 1.3045679557717869, 1.3346430699405096, 1.3431786462233684, 1.2951520110065895, 1.2698124761148284, 1.3162899817718103, 1.315044250920592, 1.3063470040867209, 1.296071540756416, 1.3665817639204212, 1.3889770388182239, 1.4932879169280335, 1.5287302378324932, 1.5682690696953319, 1.6313924082776332, 1.656449642825209, 1.6160023598248523, 1.6202722681950148, 1.6445524488257741, 1.6892730398125761, 1.6882041319343868, 1.7111329918200249, 1.698979286336496, 1.759288207822812, 1.7636089929226522, 1.73364478261868, 1.7266866856378162, 1.709991601909441, 1.742659185698926, 1.8017277232520648, 1.7352975889138884, 1.8443061002520482, 1.838895777178634, 1.7844143916678272, 1.7521527050076524, 1.7180035237177735, 1.5842719381163273, 1.8014609898664506, 1.8228298917405494, 1.873938214046486, 1.7991036284031874, 1.7728176758559908, 1.7598613584428708, 1.7417386044049086, 1.7499652585078327, 1.790095053747246, 1.7900733784381566, 1.762397798587704, 1.7868127594898504, 1.7892381222377447, 1.7786311729030797, 1.806935719163194, 1.8192615646759254, 1.811134550158599, 1.8029536410534914, 1.845884564555454, 1.8476248866714768, 1.8720080644563772, 1.8806593070315452, 1.8759576392423927, 1.8699749730224586, 1.8912193656928482, 1.910436545386586, 1.895021806747076, 1.8652809906543923, 1.8448675386308537, 1.8431572089284805, 1.8625847004928873, 1.8618101964416107, 1.8634943685255707, 1.8693208601447964, 1.9065544137005725, 1.9280079254328488, 1.9363368980471896, 1.9546431604787782, 1.9731220710328061, 1.9532934936295596, 1.9514100070419478, 1.894752880788544, 1.9199661044910639, 1.928672260353366, 1.9557623901223051, 1.9084909582754386, 1.9336642917749218, 2.0175061133792336, 1.9519736921520363, 1.9264108083256175, 1.921890640451885, 1.9419696592085982, 1.917582706896323, 1.9431267793440858, 1.9400377671499325, 1.9384071980306852, 1.9367569085090908, 1.8901479535524337, 1.9081675459243372, 1.8696443732079808, 1.8510053364413777, 1.8549307451200725, 1.7998063525476111, 1.7995135892723242, 1.8060966764755813, 1.8519168661564234, 1.8473486617079904, 1.8388228039096333, 1.8514108881584643, 1.830860758137455, 1.871886265211277, 1.8637970519371747, 1.8770164924213038, 1.847786490983938, 1.8543998325338336, 1.8530566345353319, 1.854791883760798, 1.882344046260805, 1.8597284017970461, 1.83350804365493, 1.8309235788117109, 1.864333299879718, 1.8703985448191558, 1.9057374670706484, 1.8974961365020266, 1.90872268046437, 1.9336018918457196, 1.9856341219649314, 1.9726541530382316, 2.003086359027158, 1.9730904891108128, 2.006716651577444, 1.8894555172244492, 1.9157961043020755, 1.9389502428896819, 1.948379886893227, 1.9181559728551973, 1.9241221935915145, 1.9497369092186259, 1.9340602436700998, 1.942098796004854, 1.9137558391967875, 1.9086107023847452, 1.875508666915657, 1.8464013669528587, 1.8237454589203037, 1.800747300865725, 1.846836509252992, 1.8508964047942282, 1.8449897390920984, 1.7746593074289694, 1.756271907252605, 1.77318118544575, 1.8106869151169473, 1.8141757186017589, 1.8108592005668382, 1.8076619527379436, 1.797972870353169, 1.8218464581669547, 1.7907337539399124, 1.8120478054895095, 1.8516532329930224, 1.8513371631632736, 1.8410768610116646, 1.8394381934487503, 1.8725791040321889, 1.8356519509132887, 1.8800881878907862, 1.899988190794153, 1.8939938975731438, 1.881228590249724, 1.9045381966456683, 1.8995432680088038, 1.934269152878657, 1.9313835642707786, 1.9110617669906462, 1.9174659919529715, 1.9277903335118705, 1.9614007639039976, 1.953546589564588, 1.9452939708052186, 1.9125660692210182, 1.9150469723206822, 1.947684599813444, 2.0207982162501295, 2.0658824485233387, 2.1234215617943075, 2.0228275169151892, 1.982832889530291, 2.044280659318401, 2.1193592605754366, 2.225939895964363, 2.2689791742981753, 2.184591173951045, 2.24043213113079, 2.208187768396457, 2.247457745289649, 2.1843150807044713, 2.233596499129355, 2.1259877236815394, 2.1081969638810643, 2.08392596853075, 2.1776793935379417, 2.2140666532025577, 2.2562167935775967, 2.1886458048158004, 2.2401420903909117, 2.266975042112968, 2.2622089332439614, 2.2329826349505946, 2.5300691919783778, 2.4705974502386825, 2.4570312794717544, 2.3047702711364804, 2.262507752210245, 2.1768463582329867, 2.2169830604535523, 2.378234456806057, 2.401969824558833, 2.363221509015184, 2.292244743434972, 2.319568794633585, 2.244174545271302, 2.166118551742393, 2.1860719460635885, 2.2081200190552246, 2.271680338469163, 2.298194426130116, 2.206319049242376, 2.227061598315606, 2.232489856010632, 2.2765973520530514, 2.273194108248559, 2.3001245063698716, 2.32638342119372, 2.288164619915844, 2.2991295707331085, 2.2987229946900958, 2.3043879347648524, 2.3364560671508774, 2.287462997474565, 2.3108630878827925, 2.331191454951405, 2.4145844032116863, 2.3921845017826944, 2.332249166545248, 2.260994538328024, 2.3125946469951972, 2.2853682956867507, 2.3348304329185354, 2.2800499197069626, 2.4107428649181477, 2.4771956670900783, 2.5099445943954652, 2.5205746810287053, 2.626670903375679, 2.6166362861236214, 2.6496666220456784, 2.679660588167018, 2.662792645237144, 2.6528322568323044, 2.6623489763398087, 2.673327494330591, 2.6889114843239215, 2.6865445339774303, 2.6920994634213344, 2.6837692403971984, 2.674346390964158, 2.657379195816385, 2.6515414245421476, 2.6420274458754407, 2.6409693895909943, 2.6565107477136345, 2.6251198310239743, 2.616650646857809, 2.5832311390327622, 2.5957577020449785, 2.6372677879389057, 2.64322966053066, 2.6589809376913274, 2.659216479984289, 2.644359972749732, 2.6306579164389925, 2.63199976412733, 2.6399659646220015, 2.651024678007409, 2.651593698951409, 2.6669303019176356, 2.6570428174511758, 2.6739137690573855, 2.6907777315341996, 2.6656693887668226, 2.628575374041676, 2.6080496109238633, 2.560807633458313, 2.563054567346981, 2.5724792550677504, 2.5679187074682313, 2.5427037171622193, 2.5086646235638472, 2.4810596927381043, 2.467583692252118, 2.4551587325791338, 2.4757074490528055, 2.4595224044429043, 2.4400824158186434, 2.4349011984247753, 2.3968678759173576, 2.335918464994201, 2.3493373018947894, 2.344389802341395, 2.342876561288926, 2.312353026167911, 2.42722196046905, 2.3481300205394127, 2.314348758136949, 2.4171235957541137, 2.5070114752006396, 2.5682971475746457, 2.5631295703546852, 2.5162626476953864, 2.6121919579385002, 2.92369619530648, 3.0588829650385727, 3.019272225139298, 2.9998943862545207, 2.9658570576207532, 2.9536043471012485, 2.936589827321413, 2.930792936055717, 2.916327260376922, 2.86793640031606, 2.8959290333281094, 2.9041724938385913, 2.907655003980861, 2.859215232845334, 2.8297717490212664, 2.8582261464896392, 2.878957030735699, 2.8892116996893584, 2.890857050966756, 2.8745956006781617, 2.895188147700208, 2.8784104763422427, 2.850072347639704, 2.861837380343733, 2.8738824487152685, 2.8594115766150976, 2.8628751660113907, 2.8804642405888785, 2.8550665426133253, 2.862437801270508, 2.8549849921619326, 2.8208014704074755, 2.785083847586271, 2.7718587345063788, 2.7694871268896133, 2.7328816387360537, 2.7394000485479775, 2.734804362882294, 2.7309837557094805, 2.725466257881212, 2.723699412666303, 2.697983709254986, 2.695440967614401, 2.7151312171843087, 2.700460077163513, 2.689916038305284, 2.7448403173708003, 2.731915856823742, 2.7618524058840723, 2.768097591710957, 2.754270612688656, 2.7534553220677926, 2.7664785974938395, 2.750025259110608, 2.750795641957472, 2.73629142571414, 2.7272055187963735, 2.7191531186822604, 2.7194263092464923, 2.704402843464403, 2.725092133596905, 2.7173110232661264, 2.7342871809342504, 2.722417148603866, 2.700162900406006, 2.6951670082532084, 2.706502072559299, 2.717203061563724, 2.6889623676985583, 2.6889687066141055, 2.6855211605961857, 2.7004108433417664, 2.6830780282864457, 2.685262173624966, 2.6929400504738132, 2.6762065928914214, 2.6794708491926023, 2.6712340722948995, 2.6682826575039527, 2.6752292252937298, 2.73026863932838, 2.6856092393743967, 2.687589683720515, 2.6781058534093143, 2.6804981920158495, 2.6809701332885374, 2.6831861410706255, 2.689638002857446, 2.6776036013583586, 2.679424132079358, 2.679306084531528, 2.683217981580549, 2.6979139727356065, 2.679845803205452, 2.684286718249183, 2.6944551226834856, 2.7009893996957, 2.689238477229246, 2.705212783550657, 2.7245019311812806, 2.7184176914282014, 2.7047648534155653, 2.6952558501085226, 2.7156951563049025, 2.704046304179825, 2.7038054234438293, 2.7010197228240895, 2.711041931570665, 2.734220834116492, 2.7373659040022256, 2.733507318274532, 2.7198825091418515, 2.712579370997482, 2.720673368645607, 2.7210931546010655, 2.721113921398905, 2.6632687799204398, 2.661354530385166, 2.6548852251430155, 2.660927985584643, 2.6755191041013684, 2.6654179293849025, 2.657274765645855, 2.653389259689, 2.642257752022504, 2.6669168103566423, 2.6774801094071976, 2.6550385525859523, 2.6427731715870233];
+const pDd=[0.0, -0.004275916377140453, -0.006980633923858813, -0.04495936585741908, -0.055736654747972646, -0.04094455034229201, -0.05707633314028272, -0.08162310094384514, -0.14695099938742773, -0.08117825742432357, -0.09725307423861745, -0.029972392874183896, -0.03175338301862403, -0.09357735623709998, -0.14223801067354805, -0.11262189161758222, -0.04860610470141019, -0.04223706288512004, -0.10830015543543023, -0.09987488794496355, -0.032939841324880564, -0.10076787789237474, 0.0, 0.0, -0.04776044848536916, -0.07696584476764234, -0.027730083133599006, -0.07067988877032941, -0.10102036180916418, -0.16797531525029596, -0.19584850724097977, -0.10108088947228866, -0.1625401625751554, -0.15793233556540784, -0.14846070373026587, -0.18389173801074987, -0.20103439441598592, -0.17450526875342712, -0.16809118817606816, -0.13707054017251188, -0.14555813695328795, -0.27022160793370464, -0.1814786797788967, -0.19681029534592764, -0.11775193412907146, -0.17550400088258755, -0.18258239714290098, -0.20538669379596336, -0.09237990207802381, -0.12328455230194156, -0.09652541625319387, -0.14396650107227432, -0.12134656467978691, -0.2267835630207128, -0.04914855231752412, -0.09977774395474137, -0.10888388647282633, -0.08772654066805832, -0.01065128090502931, -0.0403584018627429, -0.010964391052525262, -0.13026511631306087, 0.0, -0.019638389515114416, -0.01186603049925745, -0.002142245072836452, -0.06829081250248724, -0.0851638236734833, -0.0048494896459410075, -0.01408608929712188, -0.1398523707104546, -0.17242679263544744, -0.029438355060573754, -0.054017305485400145, -0.08709241776786275, -0.14393678831195394, -0.2506076223465146, -0.26423138555442327, -0.18092790262530492, -0.14337514974753862, -0.15173948078834404, -0.07672035380430346, -0.08230467373987699, -0.11468957520984928, -0.018240652290367296, -0.08532596355599632, -0.13166020266537135, -0.0411515911330749, -0.03607241337483914, -0.172899980431225, -0.12538444029611304, -0.08131356165594394, -0.05116545334860141, -0.0032124751116839943, -0.1746001831190225, -0.21255898337624324, -0.22317133574641412, -0.2514698445092729, -0.2362690449586455, -0.2137086373156262, -0.21805675343447992, -0.16626268292383198, -0.09549750806212423, -0.05962732183279606, -0.054548237596696414, -0.05432470069603092, -0.08083076822888705, -0.07261625267807717, -0.2583685702085124, -0.22239808075918452, -0.22145466849499257, -0.23051308897481657, -0.30158049875120485, -0.21187414151638798, -0.27515447607380084, -0.28850096279153953, -0.25484189208230873, -0.22726049404989307, -0.25538898455386577, -0.24287942886911382, -0.23126270389824755, -0.2502578402383705, -0.25402310900909303, -0.37020256140022295, -0.42092629756393596, -0.5324595342213354, -0.5564163324509426, -0.581642106773979, -0.585955964379112, -0.6162172171681549, -0.5898824070652501, -0.6033308136044871, -0.5958916250054477, -0.6321900444408723, -0.6310313987140145, -0.6339205222688347, -0.6252130202388697, -0.5945348988980172, -0.5885564779948962, -0.5908457967044689, -0.5999708530723733, -0.5920877353365167, -0.6040425842606836, -0.6529379114403058, -0.633333219123769, -0.6384933716715256, -0.6264506612391, -0.635940699596588, -0.6236506796090179, -0.6333963984574303, -0.6394157852492272, -0.6090064498606342, -0.5675105247527855, -0.5682999923541879, -0.5060091793783716, -0.4675182017470358, -0.4823123455635393, -0.5026677554221728, -0.5307049434291721, -0.5498102178832647, -0.5616867703308539, -0.5507291228261525, -0.5316872805385188, -0.4820236196574921, -0.5021689536455295, -0.502869926719158, -0.5170956336823422, -0.5385326216706849, -0.5199265226763914, -0.5100157528472873, -0.4958687152344801, -0.5242449865241543, -0.6077668586208197, -0.6504284811086308, -0.6058029141831623, -0.5964649708977319, -0.5671682276721157, -0.5821952301919758, -0.6104667980219738, -0.6199030037817653, -0.6386059915731811, -0.6362782261689406, -0.6019270427699265, -0.596850986746866, -0.5966348665798226, -0.5726656060787132, -0.5338595966591538, -0.5213963632632287, -0.46504762607685746, -0.4822094617060435, -0.5382702177930748, -0.5185302333666043, -0.532511735798805, -0.4565911096775171, -0.4092160006750999, -0.3563020167128084, -0.3240189473520194, -0.3445383855848128, -0.40958115646108145, -0.3333668958548282, -0.31843390401005023, -0.3079778678579458, -0.28558415298490575, -0.3407039356421247, -0.31793165573058624, -0.403083423540368, -0.44128681685195253, -0.4222124477828626, -0.3202322122683617, -0.15733513078125316, -0.15300286748106617, -0.049554051915192805, -0.1315691674501003, -0.1759721899368952, -0.16077765162278534, -0.1286107743485252, -0.07415248343525832, -0.28964818735070774, -0.09592170809217104, -0.10313083461205319, -0.3020691735635213, -0.18301374330958642, -0.22493182396308428, -0.14853320060700217, -0.1143922722483872, -0.1316665151743297, -0.07524137476642077, -0.11266925980053083, -0.03729747508538699, -0.024956945362284197, -0.1325737982868961, -0.07560183558523526, -0.07962212054818926, -0.2238806859948995, -0.13356316204161645, -0.17627218060791727, -0.044483931363740015, -0.008101028271012174, -0.006370179688331209, -0.01682387649372158, -0.0322805791708706, -0.005570718514630321, -0.03605108228057083, -0.008644305140938358, 0.0, -0.004224414226987751, -0.039487909546377806, -0.10192013131750605, -0.1648607614030823, -0.18545669373931123, -0.15217404159052014, -0.13691671692354196, -0.12100883881527665, -0.12914988465157318, -0.08933565310354795, -0.07040425351109196, -0.09572356502837948, -0.1812759264702078, -0.14066733975219148, -0.15031887089771365, -0.1348166718637873, -0.0021641325250223884, -0.006274732735748768, -0.05295360698479646, -0.04051431652398796, -0.032464553328159146, -0.02742023377246737, -0.09490019839108355, -0.12798582839000255, -0.15067936126071999, -0.13682222364582555, -0.10669421574460942, -0.11393119201730682, -0.11684619879701773, -0.08641175492565738, -0.12453071166631874, -0.14611252994519142, -0.09902350361631679, -0.10356937608468907, -0.09652641921093573, -0.1387453821106287, -0.07614391884785679, -0.13061221385003222, -0.06886376243063091, -0.13628427544871963, -0.23819131978645464, -0.22034769432810045, -0.2557971980405285, -0.170316817019246, -0.1389772862597266, -0.2425823190418017, -0.17823606915357196, -0.1392064445770333, -0.1424719427946929, -0.17282488466818643, -0.18665029539503758, -0.13824784774328122, -0.16512233827528544, -0.132227953330818, -0.13551542643971706, -0.0919247960664174, -0.0939250549249204, -0.07540988290597814, -0.17188531553759584, -0.191092659016917, -0.2596412615402019, -0.32223235098610936, -0.35805213329067254, -0.30259315526166364, -0.3246551822716778, -0.4183483314004508, -0.4781770713005803, -0.36580847313790094, -0.1394414062048426, -0.20518463518960087, -0.2711013975605157, -0.3261588472139267, -0.35227828917082105, -0.3047622801417284, -0.39291293003048006, -0.40028505680656534, -0.4467473902976064, -0.4694489625460263, -0.5083606599818697, -0.5618014414618342, -0.5619571902384308, -0.5687572098481259, -0.5753688184898145, -0.5532710955369864, -0.6289480582901248, -0.6156156858075105, -0.5865620941613438, -0.5605099522390579, -0.546143141443812, -0.5337240891621681, -0.5526883657298904, -0.5650706901257416, -0.5676504002047702, -0.5729586042416802, -0.5640679035504944, -0.5888897964049932, -0.5969746041978696, -0.5988929804728909, -0.5965385165827283, -0.5967668733142544, -0.6064532794605632, -0.6017417727898214, -0.6066782849898756, -0.6118032386344724, -0.6139385627882997, -0.6075724557917805, -0.6574125847770419, -0.6565069287324882, -0.6657437425769235, -0.6643874248342089, -0.655229033280297, -0.6533953067648722, -0.6604925453904775, -0.6683434686341879, -0.6486638863440141, -0.6556284219765399, -0.6818825696938663, -0.6839466476716518, -0.6733815357373351, -0.672973722768309, -0.6856672252121057, -0.6941754949006466, -0.6659183675671427, -0.643704920192222, -0.6691807452909307, -0.6275035940629217, -0.5968539454947314, -0.5965839572832861, -0.6042651878629272, -0.6275346366369353, -0.6297945979075238, -0.6427048625975676, -0.6468218772213813, -0.6683123137669625, -0.6667845668714649, -0.6519344478639824, -0.653650095045746, -0.6563044567414256, -0.672594873749769, -0.6653959605993266, -0.6698378733063395, -0.6707065712839938, -0.6734453576531674, -0.69018572628069, -0.6921022296678855, -0.6949675261454222, -0.7164697343522707, -0.7494268848459256, -0.7415567734900452, -0.7441607916002524, -0.7504201394841775, -0.7703561533635305, -0.7773640742837458, -0.7710668294996782, -0.7664830037669603, -0.7953596347662232, -0.7903093123681236, -0.7845660331887621, -0.7814272024144602, -0.7806508316525305, -0.7953191027756795, -0.7956253558936582, -0.7994609368315871, -0.8059223080006499, -0.8153971755345859, -0.81675720370142, -0.8136513733551783, -0.8136364047180714, -0.8175331071244568, -0.8119925127717609, -0.8198306880768563, -0.8240470436300918, -0.8233384424133403, -0.828439933763534, -0.8310139763864105, -0.8310892275298252, -0.8324729629798844, -0.8287706864696275, -0.8413401999565808, -0.8423374921487581, -0.8406758923858806, -0.8486215148332668, -0.8467137341182802, -0.8465408680864852, -0.8502338090134854, -0.849084938037322, -0.8451236116909341, -0.8423228965222368, -0.8442106893325646, -0.8478759515600145, -0.8475521458587765, -0.8450530719666044, -0.8418602493955091, -0.8469590402811736, -0.8430641521039418, -0.8486639981815993, -0.8443254751785689, -0.8426105791032562, -0.8392334611019122, -0.8365562821667739, -0.837286781887027, -0.823475301280394, -0.8334994025247823, -0.8395605077759435, -0.8432187905409355, -0.8429283738088962, -0.8217029678881328, -0.8192404891102819, -0.8199622547318131, -0.8191719484481623, -0.8180708580830295, -0.8157970071623097, -0.8104009317212878, -0.8031624023087047, -0.7961977472410787, -0.8114658376396079, -0.8230619220212533, -0.8206895100382142, -0.824097915902282, -0.8189617213212065, -0.8256946871211764, -0.8258448693883488, -0.8425154309892948, -0.8443538158498503, -0.8494938794611399, -0.8555620043618954, -0.8585521475800748, -0.8576667798173905, -0.8638057133753294, -0.8702840189374438, -0.87114911627645, -0.8684422372123209, -0.8717097704963978, -0.8613799175193377, -0.8645671572448039, -0.8684694127726557, -0.8673224593034135, -0.8561012271024102, -0.8567303156150379, -0.8572271003216817, -0.8643108071859672, -0.8616112896084801, -0.8622663015718199, -0.8632465413481064, -0.8662318744072628, -0.8647203337047723, -0.8623945444896185, -0.873567595084636, -0.8738259273482045, -0.8695189750951706, -0.8681037771581044, -0.8625973293777043, -0.8669274812322123, -0.8676990903846632, -0.8697956366348217];
+const mDd=[0.0, 0.0, -0.0026597750305309385, -0.03451009913975316, -0.009725760642134061, 0.0, 0.0, 0.0, 0.0, -0.02269631837279387, -0.04203900248885547, -0.03716709753938466, -0.05028258424458808, -0.05425257816400571, -0.04723553378827912, -0.061576720998499784, -0.07612397732084492, -0.083838936142771, -0.07711004421693173, -0.06738470476638515, -0.0664303740247313, -0.05757103184903666, -0.05870421425339207, -0.062056976995780146, -0.060396036962456046, -0.06948988309301884, -0.04980938797484996, -0.05107660927790492, -0.06502306640971446, -0.08219400430019397, -0.055557090024950816, -0.055655969561525534, -0.06402679554496567, -0.046963436699385665, -0.0445761672014906, -0.03682062554019286, -0.03644187900750283, -0.043920066305053254, -0.032684633326286974, -0.03652578383924607, -0.04434670228361851, -0.03682738647538352, -0.026633953247793, -0.03836681363918149, -0.05027231566704223, -0.0022020139819683483, -0.006820528022680342, -0.0010095305827872265, -0.01615811273800559, -0.023175260365264582, -0.04933270979500897, -0.05028472834452963, -0.04766478299143006, -0.0257099356017564, -0.01947896092875021, -0.05453842706771733, -0.07303629937346864, -0.039107698536670316, -0.040017082639875176, -0.0463660768906282, -0.05386716992087989, -0.002394674079534688, 0.0, 0.0, -0.013795978132416434, -0.0016024094211500419, -0.0007263176983666283, -0.003353791631267696, -0.030053621434450655, -0.027490764929157727, -0.01291747354097258, -0.004618511648039822, -0.005248351282976108, 0.0, -0.011362020945824974, 0.0, -0.007948760436519951, -0.024803988604377256, -0.028718001723254328, -0.0381091868293722, -0.019733278608244326, -0.002446726944073769, -0.05442202325797829, -0.008830040022165767, -0.01573244012820856, -0.044893560100668556, -0.06216160323853364, -0.08043992643495664, -0.15201965546107563, -0.03576938143796229, -0.024331693035072557, 0.0, -0.042401146899390965, -0.05639222424171927, -0.06328841104237791, -0.07293450824756231, -0.06855575295551301, -0.047196090682733415, -0.047207627678600074, -0.06193835419445397, -0.04894313913886399, -0.047652204837431954, -0.05329790659547165, -0.03823240363704816, -0.0316717945981109, -0.035997515283712075, -0.04035192214093377, -0.017501318952212786, -0.01657500740683048, -0.003596709373774549, -0.004339068839555785, -0.008173514637248075, -0.01133657476498742, -0.0008284000037246652, -0.0011910645778800827, -0.019847097057439277, -0.03522979456800964, -0.045788144972586556, -0.0466727704775815, -0.03662438360100402, -0.037024976560671635, -0.03615388043329682, -0.03314027254012035, -0.013882142910885867, -0.004326565131770981, -2.526706009306494e-05, 0.0, 0.0, -0.010049341444377784, -0.016850972517457805, -0.04539566500903016, -0.03269287252903893, -0.02830658331342269, -0.014658177985686803, -0.038474219760732946, -0.02579152455101291, 0.0, -0.03318043033025335, -0.045841818360195595, -0.0480806737177691, -0.038135463722467455, -0.05021440865646208, -0.03756233796982734, -0.03909233678705696, -0.03989996351918233, -0.0407173578373093, -0.06380294037109376, -0.05487777164946987, -0.07395843724331748, -0.08319041899501738, -0.08124614999960407, -0.10854945932159374, -0.10869446602171784, -0.10543383932242333, -0.08273893505833067, -0.08500158310361661, -0.08922447104560792, -0.08298954777520073, -0.09316810086915406, -0.0728480200944658, -0.07685463643774863, -0.07030700015990017, -0.08478472469314598, -0.08150911290746676, -0.0821744036929491, -0.08131492852882162, -0.06766824363812539, -0.07886985344268636, -0.09185689085895335, -0.09313698556391474, -0.07658903090877535, -0.07358489333977775, -0.05608139842017535, -0.06016335900493942, -0.05460281152103108, -0.04228004890484024, -0.016508298734707667, -0.02293732389139568, -0.007864143132552124, -0.022721205069907234, -0.0060660462138517265, -0.07223003193758974, -0.05929614415405877, -0.047926882362972954, -0.043296691053224506, -0.058137389606940586, -0.05520782584027547, -0.042630359113669365, -0.05032799441796397, -0.046380863948420906, -0.06029796540590411, -0.06282435640705208, -0.07907828464722055, -0.0933706977316724, -0.10449531584528929, -0.1157879872891421, -0.09315703196700269, -0.09116352160261865, -0.09406384235632992, -0.1285978452704433, -0.13762651914969712, -0.12932364017414036, -0.11090738781890132, -0.10919429795350223, -0.11082279134923809, -0.11239272008746984, -0.11715030213834622, -0.10542777276328713, -0.12070488955376898, -0.11023915657133898, -0.09079190000717857, -0.0909470982074952, -0.09598516346636532, -0.09678979026951082, -0.08051677337482223, -0.09864893015620253, -0.07682962518416107, -0.0670582254926672, -0.07000157355220857, -0.07626965907197428, -0.06482405869431611, -0.06727669372046649, -0.050225414765792065, -0.05164231102302988, -0.06162082231460824, -0.05847618750601052, -0.05340667729471125, -0.036903114417891486, -0.04075971067517455, -0.04481195311910286, -0.0608821722540455, -0.05966398671405336, -0.043638094418333634, -0.007737478093671506, 0.0, -0.0024142168270816925, -0.05916376003524409, -0.07776564009320498, -0.04918570028210878, -0.014265931632627711, 0.0, 0.0, -0.039998144375629666, -0.015459263530733588, -0.02962880171594957, -0.012371911210616334, -0.04011947143773464, -0.018463129647190706, -0.06575098164584764, -0.07356899474828744, -0.08423469771916021, -0.04303547332823482, -0.027045370825010143, -0.009677654329732466, -0.0393366216241535, -0.016733331696865642, -0.005263031466822154, -0.021783732996776967, -0.03442166400072851, -0.01188017047682457, -0.0351068899260752, -0.04040516492503573, -0.09987078036207138, -0.11637642895421807, -0.14983153060989227, -0.134156120829974, -0.07117930470992989, -0.06190944457649865, -0.07704261922274677, -0.10476263167441606, -0.0940912093679202, -0.12353647239198517, -0.1540212809749224, -0.14622847251830817, -0.1376175862252047, -0.1127940706538266, -0.10243898002525077, -0.13832095591568208, -0.13021994266311998, -0.1280999338170288, -0.11087372845936042, -0.11220286708473179, -0.10168518619086873, -0.09142975344560231, -0.10635612602189738, -0.10207375881761818, -0.10223254730118365, -0.10002010202945952, -0.08749587636524833, -0.10663014502867575, -0.09749122763530416, -0.08955197337854011, -0.05698281436911789, -0.06573110744012439, -0.08913888356933397, -0.11696741541738395, -0.09681496632973062, -0.1074482318936671, -0.08813076865421088, -0.10952532637912625, -0.05848312913353346, -0.03252995292726528, -0.01973984245571643, -0.015588256631440874, 0.0, -0.008257031508505156, 0.0, -0.006058611448127276, -0.012315279435023621, -0.01600979295861671, -0.012479845381107324, -0.00840768659197344, -0.002627263234795713, -0.003505213944080883, -0.0014447760255016156, -0.004956591270950431, -0.008450238965640327, -0.014741053929266678, -0.01690548585607349, -0.02043292093528857, -0.020825209480836906, -0.015063042700677327, -0.026701645705675726, -0.029841709223434786, -0.04223243957525896, -0.03758804848092996, -0.02219762789528529, -0.01998718374203547, -0.014147186665585397, -0.014059856204172957, -0.019568105340486003, -0.02464832632700337, -0.0241508183156213, -0.021197242734114156, -0.017097076558297643, -0.0168861044183561, -0.011199853356182161, -0.014865770715681223, -0.008610639334765151, -0.0065870109209608604, -0.015856804388866292, -0.02955160928233448, -0.03712955206557896, -0.054570901268843876, -0.053741351773006436, -0.050261834646748785, -0.05194555127989203, -0.06125471814118168, -0.07382167130153053, -0.08401318452967275, -0.08898841298006623, -0.09357560581404596, -0.08598918884076112, -0.091964574081939, -0.09914165785982446, -0.10105452067193646, -0.11509611026661407, -0.13759813106833121, -0.13264400694311884, -0.13447058305239942, -0.13502925919257747, -0.1462982971017539, -0.10388963211278247, -0.13308972528166788, -0.14556148928685034, -0.10761786523984765, -0.0744320000691723, -0.05180583430777105, -0.053713661279956755, -0.07101654333605438, -0.03560023164591472, 0.0, -0.0021372119493803807, -0.03136859184844533, -0.037585316266207855, -0.048505042314667186, -0.052435910205731115, -0.0578944435953808, -0.05975418015800014, -0.0643950030973653, -0.07991957439376607, -0.07093908455698761, -0.0682944489736753, -0.06717720334245264, -0.08271746610341647, -0.0921634123681917, -0.08303478101842249, -0.07638397774460991, -0.07309411393371991, -0.07256625860770466, -0.07778319511328957, -0.07117677266045104, -0.0765593212420783, -0.08565065168951867, -0.08187623873656714, -0.07801198580804428, -0.08265447584351067, -0.08154330029390106, -0.07590044042382468, -0.08404843309206877, -0.08168361398317676, -0.08407459579707768, -0.09504122296534219, -0.10650001459104037, -0.11074284496548555, -0.11150369508237241, -0.12324732828014463, -0.12115611688739208, -0.12263048724747697, -0.12385619987947574, -0.1256263025043301, -0.12619313505233723, -0.13444314901249368, -0.1352589016946725, -0.128941950871573, -0.13364869009806868, -0.13703138845888965, -0.11941079057772794, -0.1235571667524429, -0.11395303717775111, -0.11194948046256141, -0.11638539917480534, -0.11664695760453686, -0.11246888001695023, -0.1177473773297284, -0.11750022604089773, -0.12215341341729118, -0.12506831944623795, -0.12765165976136084, -0.12756401580573393, -0.13238378684017593, -0.12574632763135057, -0.1282426337921298, -0.12279640758895295, -0.1266045061218549, -0.1337440292128054, -0.13534679229281033, -0.13171032016258022, -0.12827726965402853, -0.1373373414282887, -0.1373353078015619, -0.13844133637566663, -0.13366448510512038, -0.1392251327719571, -0.13852442358871636, -0.13606123640016474, -0.141429600486821, -0.14038237422108255, -0.14302486559321576, -0.14397172723794946, -0.14174315583454725, -0.12408562079139285, -0.1384130792777288, -0.13777772067052083, -0.14082028696597462, -0.14005278601196025, -0.13990137961152962, -0.1391904484405784, -0.1371205867316102, -0.140981417554768, -0.14039736182730422, -0.14043523339169364, -0.13918023348953606, -0.13446552161685965, -0.14026208290371314, -0.13883736546469788, -0.13557517670813463, -0.1334788748606583, -0.13724876102096834, -0.13212394494856564, -0.12593567412093865, -0.12788759673013128, -0.13226764818734452, -0.13531829038738447, -0.12876103007220144, -0.13249817041460388, -0.13257544885427594, -0.13346914671017654, -0.1302538598969657, -0.12281769272216372, -0.12180870338798316, -0.12304660015521385, -0.127417659493984, -0.1297606244395777, -0.12716393896213052, -0.12702926483179794, -0.12702260250686193, -0.14558026033529, -0.14619438257556608, -0.14826984042739233, -0.1463312250528128, -0.14165015802027317, -0.14489077839498743, -0.14750323715034147, -0.14874977036289272, -0.15232093822780765, -0.14440991311420245, -0.1410210357718842, -0.1482206505015143, -0.15215558328749715];
+const pHx=[-334.2533, -317.8136, -301.374, -284.9343, -268.4947, -252.055, -235.6154, -219.1757, -202.7361, -186.2964, -169.8568, -153.4171, -136.9775, -120.5378, -104.0982, -87.6585, -71.2189, -54.7792, -38.3396, -21.8999, -5.4603, 10.9794, 27.419, 43.8587, 60.2983, 76.738, 93.1776, 109.6173, 126.0569, 142.4965, 158.9362, 175.3758, 191.8155, 208.2551, 224.6948, 241.1344, 257.5741, 274.0137, 290.4534, 306.893];const pHy=[1, 0, 2, 1, 0, 1, 3, 4, 4, 12, 13, 14, 25, 23, 56, 194, 431, 1117, 4917, 16491, 17167, 19218, 11854, 2972, 865, 357, 156, 65, 35, 26, 27, 22, 12, 7, 5, 1, 0, 1, 0, 1];
+const mHx=[-131.2256, -123.8678, -116.51, -109.1523, -101.7945, -94.4367, -87.0789, -79.7211, -72.3634, -65.0056, -57.6478, -50.29, -42.9322, -35.5745, -28.2167, -20.8589, -13.5011, -6.1434, 1.2144, 8.5722, 15.93, 23.2878, 30.6455, 38.0033, 45.3611, 52.7189, 60.0767, 67.4344, 74.7922, 82.15, 89.5078, 96.8656, 104.2233, 111.5811, 118.9389, 126.2967, 133.6545, 141.0122, 148.37, 155.7278];const mHy=[2, 1, 2, 1, 6, 6, 6, 3, 9, 12, 34, 43, 87, 167, 286, 567, 1279, 2742, 2198, 2111, 990, 488, 292, 186, 94, 59, 30, 24, 22, 10, 13, 8, 4, 2, 2, 1, 0, 1, 0, 1];
+const mnths=["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12"];
+const mRet=[7.6157, 17.2198, 15.9426, 52.3935, -4.4404, -0.4917, -3.4279, -5.3205, 4.58, 7.5787, 1.9975, 3.5356];
+const mCol=["rgba(0,255,136,0.75)", "rgba(0,255,136,0.75)", "rgba(0,255,136,0.75)", "rgba(0,255,136,0.75)", "rgba(255,75,75,0.75)", "rgba(255,75,75,0.75)", "rgba(255,75,75,0.75)", "rgba(255,75,75,0.75)", "rgba(0,255,136,0.75)", "rgba(0,255,136,0.75)", "rgba(0,255,136,0.75)", "rgba(0,255,136,0.75)"];
+const wData=[48.96, 49.88];
+const pfData=[1.0085, 1.1375];
+const shData=[1.0282, 13.9832];
+const trueVals=[41848, 29828, 41249];
+const primVals=[38614, 36821, 37490];
+const metaVals=[5549, 101135, 6241];
+const pcaVals=[36.8, 46.77, 34.83];
+const wfF1=[0.4107, 0.3991];
+const wfAvg=0.4049;
+ 
+function lineChart(id,labels,datasets,yFmt){
+  new C(document.getElementById(id),{
+    type:'line',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:datasets.length>1},tooltip:{callbacks:{label:ctx=>yFmt?yFmt(ctx.parsed.y):ctx.parsed.y.toFixed(4)}}},
+      scales:{x:{display:false},y:{grid:{color:'rgba(26,37,53,0.8)'},ticks:{callback:v=>yFmt?yFmt(v):v.toFixed(3)}}},
+      elements:{point:{radius:0},line:{tension:0.2}}}
+  });
+}
+ 
+function barChart(id,labels,data,colors,yFmt){
+  new C(document.getElementById(id),{
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:colors,borderRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>yFmt?yFmt(ctx.parsed.y):ctx.parsed.y.toFixed(4)}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'rgba(26,37,53,0.8)'}}}}
+  });
+}
+ 
+function groupedBar(id,labels,datasets){
+  new C(document.getElementById(id),{
+    type:'bar',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}}},
+      scales:{x:{grid:{display:false}},y:{grid:{color:'rgba(26,37,53,0.8)'}}},
+      barPercentage:0.7}
+  });
+}
+ 
+const idxP=Array.from({length:pEq.length},(_,i)=>i);
+const idxM=Array.from({length:mEq.length},(_,i)=>i);
+ 
+lineChart('equityPrimary',idxP,[{label:'Equity',data:pEq,borderColor:'#00ff88',backgroundColor:'rgba(0,255,136,0.05)',fill:true,borderWidth:1.5}],v=>(v*100-100).toFixed(2)+'%');
+lineChart('equityMeta',   idxM,[{label:'Equity',data:mEq,borderColor:'#0099ff',backgroundColor:'rgba(0,153,255,0.05)',fill:true,borderWidth:1.5}],v=>(v*100-100).toFixed(2)+'%');
+lineChart('ddPrimary',    idxP,[{label:'DD',data:pDd,borderColor:'#ff4b4b',backgroundColor:'rgba(255,75,75,0.1)',fill:true,borderWidth:1}],v=>(v*100).toFixed(2)+'%');
+lineChart('ddMeta',       idxM,[{label:'DD',data:mDd,borderColor:'#ff4b4b',backgroundColor:'rgba(255,75,75,0.1)',fill:true,borderWidth:1}],v=>(v*100).toFixed(2)+'%');
+barChart('distPrimary',pHx,pHy,pHx.map(v=>v>=0?'rgba(0,255,136,0.6)':'rgba(255,75,75,0.6)'));
+barChart('distMeta',   mHx,mHy,mHx.map(v=>v>=0?'rgba(0,153,255,0.6)':'rgba(255,75,75,0.6)'));
+barChart('monthly',mnths,mRet,mCol,v=>v.toFixed(2)+'%');
+ 
+// Label & signal
+groupedBar('labelDist',['SELL','HOLD','BUY'],[
+  {label:'True Labels',  data:trueVals, backgroundColor:'rgba(100,116,139,0.5)'},
+  {label:'Primary Pred', data:primVals, backgroundColor:'rgba(0,255,136,0.5)'},
+  {label:'Meta Signals', data:metaVals, backgroundColor:'rgba(0,153,255,0.5)'}
+]);
+barChart('classAcc',['SELL Recall','HOLD Recall','BUY Recall'],pcaVals,
+  ['rgba(255,75,75,0.7)','rgba(255,170,0,0.7)','rgba(0,255,136,0.7)'],
+  v=>v.toFixed(1)+'%'
+);
+ 
+// Walk-forward
+const wfLabels=wfF1.map((_,i)=>'Fold '+(i+1));
+new C(document.getElementById('wfChart'),{
+  type:'line',
+  data:{labels:wfLabels,datasets:[
+    {label:'Macro F1',data:wfF1,borderColor:'#0099ff',backgroundColor:'rgba(0,153,255,0.1)',fill:true,borderWidth:2,pointRadius:6,pointBackgroundColor:'#0099ff'},
+    {label:'Average', data:wfF1.map(()=>wfAvg),borderColor:'rgba(255,170,0,0.6)',borderDash:[5,5],borderWidth:1,pointRadius:0}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:true,labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:ctx=>ctx.parsed.y.toFixed(4)}}},
+    scales:{
+      x:{grid:{color:'rgba(26,37,53,0.8)'}},
+      y:{grid:{color:'rgba(26,37,53,0.8)'},min:0.3,max:0.5,ticks:{callback:v=>v.toFixed(3)}}
+    }
+  }
+});
+ 
+// Comparison
+barChart('cmpWin',   ['Primary','Meta'],wData, ['rgba(0,255,136,0.7)','rgba(0,153,255,0.7)'],v=>v.toFixed(2)+'%');
+barChart('cmpPF',    ['Primary','Meta'],pfData,['rgba(0,255,136,0.7)','rgba(0,153,255,0.7)']);
+barChart('cmpSharpe',['Primary','Meta'],shData,['rgba(0,255,136,0.7)','rgba(0,153,255,0.7)']);
+</script>
+</body>
+</html>
